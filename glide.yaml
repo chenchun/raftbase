@@ -1,0 +1,17 @@
+package: github.com/chenchun/raftbase
+import:
+- package: github.com/coreos/etcd
+  version: ^3.2.9
+  subpackages:
+  - etcdserver/stats
+  - pkg/fileutil
+  - pkg/types
+  - raft
+  - raft/raftpb
+  - rafthttp
+  - snap
+  - wal
+  - wal/walpb
+- package: golang.org/x/net
+  subpackages:
+  - context
