@@ -33,25 +33,32 @@ func (h *httpKVAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := r.RequestURI
 	switch {
 	case r.Method == "PUT":
+		log.Printf("PUT (%v)\n", key)
+		//if v, ok := h.store.Lookup(key); ok {
+		//	log.Printf("Failed to PUT %s, value %s exist\n", key, v)
+		//	http.Error(w, "Failed on PUT", http.StatusBadRequest)
+		//	return
+		//}
 		v, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			log.Printf("Failed to read on PUT (%v)\n", err)
 			http.Error(w, "Failed on PUT", http.StatusBadRequest)
 			return
 		}
-
 		h.store.Propose(key, string(v))
 
 		// Optimistic-- no waiting for ack from raft. Value is not yet
 		// committed so a subsequent GET on the key may return old value
 		w.WriteHeader(http.StatusNoContent)
 	case r.Method == "GET":
+		log.Printf("GET (%v)\n", key)
 		if v, ok := h.store.Lookup(key); ok {
 			w.Write([]byte(v))
 		} else {
 			http.Error(w, "Failed to GET", http.StatusNotFound)
 		}
 	case r.Method == "POST":
+		log.Printf("POST (%v)\n", key)
 		url, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			log.Printf("Failed to read on POST (%v)\n", err)
@@ -76,6 +83,7 @@ func (h *httpKVAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// As above, optimistic that raft will apply the conf change
 		w.WriteHeader(http.StatusNoContent)
 	case r.Method == "DELETE":
+		log.Printf("DELETE (%v)\n", key)
 		nodeId, err := strconv.ParseUint(key[1:], 0, 64)
 		if err != nil {
 			log.Printf("Failed to convert ID for conf change (%v)\n", err)

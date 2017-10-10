@@ -795,6 +795,7 @@ func stepLeader(r *raft, m pb.Message) {
 		}
 		return
 	case pb.MsgProp:
+		r.logger.Infof("leader receive prop %s", m.BeautiString())
 		if len(m.Entries) == 0 {
 			r.logger.Panicf("%x stepped empty MsgProp", r.id)
 		}
@@ -819,6 +820,7 @@ func stepLeader(r *raft, m pb.Message) {
 			}
 		}
 		r.appendEntry(m.Entries...)
+		r.logger.Infof("leader bcast append %v", pb.EntriesStr(m.Entries))
 		r.bcastAppend()
 		return
 	case pb.MsgReadIndex:

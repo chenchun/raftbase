@@ -119,6 +119,7 @@ func (h *pipelineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	receivedBytes.WithLabelValues(types.ID(m.From).String()).Add(float64(len(b)))
 
 	if err := h.r.Process(context.TODO(), m); err != nil {
+		plog.Infof("pipelineHandler err type %+v", err)
 		switch v := err.(type) {
 		case writerToResponse:
 			v.WriteTo(w)
@@ -214,6 +215,7 @@ func (h *snapshotHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	plog.Infof("received and saved database snapshot [index: %d, from: %s] successfully", m.Snapshot.Metadata.Index, types.ID(m.From))
 
 	if err := h.r.Process(context.TODO(), m); err != nil {
+		plog.Infof("snapshotHanlder err type %+v", err)
 		switch v := err.(type) {
 		// Process may return writerToResponse error when doing some
 		// additional checks before calling raft.Node.Step.

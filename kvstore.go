@@ -37,13 +37,17 @@ type kv struct {
 	Val string
 }
 
-func newKVStore(snapshotter *snap.Snapshotter, proposeC chan<- string, commitC <-chan *string, errorC <-chan error) *kvstore {
-	s := &kvstore{proposeC: proposeC, kvStore: make(map[string]string), snapshotter: snapshotter}
+func newKVStore(proposeC chan<- string) *kvstore {
+	s := &kvstore{proposeC: proposeC, kvStore: make(map[string]string)}
+	return s
+}
+
+func (s *kvstore) Start(snapshotter *snap.Snapshotter, commitC <-chan *string, errorC <-chan error) {
+	s.snapshotter = snapshotter
 	// replay log into key-value map
 	s.readCommits(commitC, errorC)
 	// read commits from raft into kvStore map until error
 	go s.readCommits(commitC, errorC)
-	return s
 }
 
 func (s *kvstore) Lookup(key string) (string, bool) {
@@ -85,6 +89,7 @@ func (s *kvstore) readCommits(commitC <-chan *string, errorC <-chan error) {
 		if err := dec.Decode(&dataKv); err != nil {
 			log.Fatalf("raftexample: could not decode message (%v)", err)
 		}
+		log.Printf("received from commit chan %v\n", dataKv)
 		s.mu.Lock()
 		s.kvStore[dataKv.Key] = dataKv.Val
 		s.mu.Unlock()

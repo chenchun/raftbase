@@ -387,7 +387,7 @@ func (cr *streamReader) decodeLoop(rc io.ReadCloser, t streamType) error {
 		if m.Type == raftpb.MsgProp {
 			recvc = cr.propc
 		}
-
+		//plog.Infof("receive %v", m.BeautiString())
 		select {
 		case recvc <- m:
 		default:

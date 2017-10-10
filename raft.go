@@ -20,7 +20,8 @@ import (
 	"os"
 	"strconv"
 	"time"
-
+	"encoding/gob"
+	"bytes"
 	"net/http"
 	"net/url"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/coreos/etcd/wal"
 	"github.com/coreos/etcd/wal/walpb"
 	"golang.org/x/net/context"
+	"github.com/chenchun/raftbase/httputil"
 )
 
 // A key-value stream backed by raft
@@ -68,6 +70,7 @@ type raftNode struct {
 	stopc     chan struct{} // signals proposal channel closed
 	httpstopc chan struct{} // signals http server to shutdown
 	httpdonec chan struct{} // signals http server shutdown complete
+	kvstore *kvstore
 }
 
 var defaultSnapCount uint64 = 10000
@@ -78,7 +81,7 @@ var defaultSnapCount uint64 = 10000
 // commit channel, followed by a nil message (to indicate the channel is
 // current), then new log entries. To shutdown, close proposeC and read errorC.
 func newRaftNode(id int, peers []string, join bool, getSnapshot func() ([]byte, error), proposeC <-chan string,
-	confChangeC <-chan raftpb.ConfChange) (<-chan *string, <-chan error, <-chan *snap.Snapshotter) {
+	confChangeC <-chan raftpb.ConfChange, kvstore *kvstore) (<-chan *string, <-chan error, <-chan *snap.Snapshotter) {
 
 	commitC := make(chan *string)
 	errorC := make(chan error)
@@ -100,6 +103,7 @@ func newRaftNode(id int, peers []string, join bool, getSnapshot func() ([]byte, 
 		httpdonec:   make(chan struct{}),
 
 		snapshotterReady: make(chan *snap.Snapshotter, 1),
+		kvstore: kvstore,
 		// rest of structure populated after WAL replay
 	}
 	go rc.startRaft()
@@ -432,6 +436,7 @@ func (rc *raftNode) serveChannels() {
 				rc.publishSnapshot(rd.Snapshot)
 			}
 			rc.raftStorage.Append(rd.Entries)
+			//log.Printf("send %s", raftpb.MessagesStr(rd.Messages))
 			rc.transport.Send(rd.Messages)
 			if ok := rc.publishEntries(rc.entriesToApply(rd.CommittedEntries)); !ok {
 				rc.stop()
@@ -472,6 +477,20 @@ func (rc *raftNode) serveRaft() {
 }
 
 func (rc *raftNode) Process(ctx context.Context, m raftpb.Message) error {
+	if m.Type == raftpb.MsgProp {
+		log.Printf("process message %v", m.BeautiString())
+		if len(m.Entries) > 0 {
+			var dataKv kv
+			dec := gob.NewDecoder(bytes.NewBuffer(m.Entries[0].Data))
+			if err := dec.Decode(&dataKv); err != nil {
+				log.Fatalf("raftexample: could not decode message (%v)", err)
+			}
+			log.Printf("kv %v", dataKv)
+			if _, exist := rc.kvstore.Lookup(dataKv.Key); exist {
+				return httputil.NewHTTPError(http.StatusBadRequest, "key exists")
+			}
+		}
+	}
 	return rc.node.Step(ctx, m)
 }
 func (rc *raftNode) IsIDRemoved(id uint64) bool                           { return false }

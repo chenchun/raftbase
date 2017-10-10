@@ -316,13 +316,18 @@ func (n *node) run(r *raft) {
 		// Currently it is dropped in Step silently.
 		case m := <-propc:
 			m.From = r.id
+			r.logger.Infof("%s(id:%d,term:%d) propose %s", r.state.String()[5:], r.id, r.Term, m.BeautiString())
 			r.Step(m)
 		case m := <-n.recvc:
+			if len(m.Entries) != 0 || len(m.Snapshot.Data) != 0 {
+				r.logger.Infof("%s(id:%d,term:%d) receive %s", r.state.String()[5:], r.id, r.Term, m.BeautiString())
+			}
 			// filter out response message from unknown From.
 			if _, ok := r.prs[m.From]; ok || !IsResponseMsg(m.Type) {
 				r.Step(m) // raft never returns an error
 			}
 		case cc := <-n.confc:
+			r.logger.Infof("%s(id:%d,term:%d) receive %s", r.state.String()[5:], r.id, r.Term, cc.BeautiString())
 			if cc.NodeID == None {
 				r.resetPendingConf()
 				select {

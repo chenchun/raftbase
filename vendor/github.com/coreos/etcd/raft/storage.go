@@ -240,7 +240,7 @@ func (ms *MemoryStorage) Append(entries []pb.Entry) error {
 	if len(entries) == 0 {
 		return nil
 	}
-
+	defer func() {raftLogger.Infof("entries %v", pb.EntriesStr(ms.ents))}()
 	ms.Lock()
 	defer ms.Unlock()
 
